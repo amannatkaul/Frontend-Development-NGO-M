@@ -1,5 +1,9 @@
 import { useState } from 'react';
 import { Plus, Search, Filter, Eye, Edit2, Trash2, FolderKanban } from 'lucide-react';
+import {
+  Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer,
+  Tooltip, XAxis, YAxis,
+} from 'recharts';
 
 const projects = [
   { id: 1, name: 'Clean Water Initiative', category: 'Environment', status: 'Active', lead: 'Priya Sharma', budget: '₹8,50,000', spent: '₹5,78,000', beneficiaries: 2400, progress: 68, startDate: '1 Mar 2025', endDate: '31 Dec 2025' },
@@ -11,6 +15,19 @@ const projects = [
   { id: 7, name: 'Rural Connectivity', category: 'Technology', status: 'Planning', lead: 'Neha Joshi', budget: '₹6,90,000', spent: '₹0', beneficiaries: 0, progress: 8, startDate: '1 Jan 2026', endDate: '31 Dec 2026' },
   { id: 8, name: 'Old Age Care Home', category: 'Social', status: 'On Hold', lead: 'Amit Kumar', budget: '₹3,40,000', spent: '₹1,02,000', beneficiaries: 85, progress: 30, startDate: '1 Feb 2025', endDate: '30 Apr 2026' },
 ];
+
+const statusColors: Record<string, string> = {
+  Active: '#1AACB8',
+  Planning: '#6366F1',
+  Completed: '#10B981',
+  'On Hold': '#F59E0B',
+};
+
+const formatCurrency = (amount: number) =>
+  `₹${amount.toLocaleString('en-IN')}`;
+
+const parseCurrency = (amount: string) =>
+  Number(amount.replace(/[^\d]/g, ''));
 
 const statusStyle: Record<string, string> = {
   Active: 'badge badge-teal',
@@ -35,6 +52,27 @@ export default function ProjectsPage() {
     (statusFilter === 'All' || p.status === statusFilter) &&
     p.name.toLowerCase().includes(search.toLowerCase())
   );
+  const statusData = Object.entries(
+    filtered.reduce<Record<string, number>>((counts, project) => {
+      counts[project.status] = (counts[project.status] ?? 0) + 1;
+      return counts;
+    }, {}),
+  ).map(([name, value]) => ({ name, value, color: statusColors[name] }));
+  const budgetData = Object.entries(
+    filtered.reduce<Record<string, { budget: number; spent: number }>>((totals, project) => {
+      const category = totals[project.category] ?? { budget: 0, spent: 0 };
+      category.budget += parseCurrency(project.budget);
+      category.spent += parseCurrency(project.spent);
+      totals[project.category] = category;
+      return totals;
+    }, {}),
+  ).map(([category, totals]) => ({ category, ...totals }));
+  const beneficiaryData = filtered
+    .filter(project => project.beneficiaries > 0)
+    .map(project => ({ name: project.name, beneficiaries: project.beneficiaries }));
+  const progressData = [...filtered]
+    .sort((a, b) => b.progress - a.progress)
+    .map(project => ({ name: project.name, progress: project.progress }));
 
   return (
     <div className="flex flex-col gap-5">
@@ -82,6 +120,134 @@ export default function ProjectsPage() {
                 }`}
               >{s}</button>
             ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Portfolio charts */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <span className="card-title">Project Status Mix</span>
+              <p className="text-xs text-slate-400 mt-1">Based on {filtered.length} matching projects</p>
+            </div>
+          </div>
+          <div className="card-body">
+            {statusData.length ? (
+              <div className="flex flex-col sm:flex-row items-center gap-6">
+                <div className="relative w-44 h-44 shrink-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={statusData} dataKey="value" nameKey="name" innerRadius={52} outerRadius={76} paddingAngle={3}>
+                        {statusData.map(entry => <Cell key={entry.name} fill={entry.color} />)}
+                      </Pie>
+                      <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-2xl font-extrabold text-slate-800">{filtered.length}</span>
+                    <span className="text-[11px] text-slate-400">projects</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                  {statusData.map(entry => (
+                    <div key={entry.name} className="flex items-center gap-2 text-sm">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ background: entry.color }} />
+                      <span className="text-slate-500">{entry.name}</span>
+                      <span className="font-semibold text-slate-700">{entry.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="h-44 flex items-center justify-center text-sm text-slate-400">No matching projects</div>
+            )}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <span className="card-title">Budget by Category</span>
+              <p className="text-xs text-slate-400 mt-1">Planned budget compared with spend</p>
+            </div>
+          </div>
+          <div className="card-body">
+            {budgetData.length ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={budgetData} barGap={5}>
+                  <XAxis dataKey="category" tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: '#94A3B8' }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={value => `₹${Number(value) / 100000}L`}
+                  />
+                  <Tooltip
+                    formatter={(value, name) => [formatCurrency(Number(value)), name === 'budget' ? 'Budget' : 'Spent']}
+                    contentStyle={{ borderRadius: 8, fontSize: 12 }}
+                  />
+                  <Bar dataKey="budget" fill="#CBD5E1" radius={[4, 4, 0, 0]} name="Budget" />
+                  <Bar dataKey="spent" fill="#1AACB8" radius={[4, 4, 0, 0]} name="Spent" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-44 flex items-center justify-center text-sm text-slate-400">No matching projects</div>
+            )}
+          </div>
+        </div>
+
+        <div className="card xl:col-span-2">
+          <div className="card-header">
+            <div>
+              <span className="card-title">Beneficiaries Reached</span>
+              <p className="text-xs text-slate-400 mt-1">Reach by project with recorded beneficiaries</p>
+            </div>
+          </div>
+          <div className="card-body">
+            {beneficiaryData.length ? (
+              <ResponsiveContainer width="100%" height={Math.max(190, beneficiaryData.length * 42)}>
+                <BarChart data={beneficiaryData} layout="vertical" barSize={18} margin={{ left: 8 }}>
+                  <XAxis type="number" tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    width={170}
+                    tick={{ fontSize: 11, fill: '#64748B' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                  <Bar dataKey="beneficiaries" fill="#6366F1" radius={[0, 5, 5, 0]} name="Beneficiaries" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-44 flex items-center justify-center text-sm text-slate-400">No matching projects with recorded beneficiaries</div>
+            )}
+          </div>
+        </div>
+
+        <div className="card xl:col-span-2">
+          <div className="card-header">
+            <div>
+              <span className="card-title">Project Delivery Progress</span>
+              <p className="text-xs text-slate-400 mt-1">Completion progress across matching projects</p>
+            </div>
+          </div>
+          <div className="card-body">
+            {progressData.length ? (
+              <ResponsiveContainer width="100%" height={Math.max(190, progressData.length * 42)}>
+                <BarChart data={progressData} layout="vertical" barSize={18} margin={{ left: 8 }}>
+                  <XAxis type="number" domain={[0, 100]} tickFormatter={value => `${value}%`} tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                  <YAxis dataKey="name" type="category" width={170} tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={value => [`${value}%`, 'Progress']} contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                  <Bar dataKey="progress" fill="#1AACB8" radius={[0, 5, 5, 0]} name="Progress" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-44 flex items-center justify-center text-sm text-slate-400">No matching projects</div>
+            )}
           </div>
         </div>
       </div>

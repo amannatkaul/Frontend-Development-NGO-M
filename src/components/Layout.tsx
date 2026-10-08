@@ -4,9 +4,14 @@ import {
   LayoutDashboard, FolderKanban, CalendarDays, Users, Heart, DollarSign,
   BarChart3, MessageSquare, Settings, ChevronDown, ChevronRight, Bell,
   Search, UserCircle, Menu, X, Handshake, Gift, Target, Warehouse, FileText,
-  BookUser, Briefcase, GraduationCap, UserCheck, Star, TrendingUp, Building2
+  BookUser, Briefcase, GraduationCap, UserCheck, Star, TrendingUp, Building2, LogOut
 } from 'lucide-react';
 import logoUrl from '../assets/hope-logo.jpeg';
+
+interface LayoutProps {
+  userEmail: string;
+  onLogout: () => void;
+}
 
 interface NavItem {
   label: string;
@@ -124,7 +129,7 @@ function NavGroup({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
   );
 }
 
-export default function Layout() {
+export default function Layout({ userEmail, onLogout }: LayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
@@ -209,11 +214,22 @@ export default function Layout() {
               <UserCircle size={18} className="text-white" />
             </div>
             {!collapsed && (
-              <div className="min-w-0">
-                <div className="text-white text-xs font-semibold truncate">Admin User</div>
-                <div className="text-slate-400 text-[10px] truncate">admin@hopefoundation.org</div>
+              <div className="min-w-0 flex-1">
+                <div className="text-white text-xs font-semibold truncate">
+                  {userEmail.split('@')[0].replace(/[._-]/g, ' ')}
+                </div>
+                <div className="text-slate-400 text-[10px] truncate">{userEmail}</div>
               </div>
             )}
+            <button
+              type="button"
+              onClick={onLogout}
+              className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
+              title="Sign out"
+              aria-label="Sign out"
+            >
+              <LogOut size={16} />
+            </button>
           </div>
         </div>
       </aside>

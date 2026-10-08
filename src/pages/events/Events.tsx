@@ -1,5 +1,9 @@
 import { useState } from 'react';
 import { Plus, MapPin, Calendar, Users, Clock, Search } from 'lucide-react';
+import {
+  Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer,
+  Tooltip, XAxis, YAxis,
+} from 'recharts';
 
 const events = [
   { id: 1, title: 'Annual Donors Gala 2025', type: 'Fundraiser', date: '15 Nov 2025', time: '6:00 PM', location: 'Taj Hotel, Mumbai', organizer: 'Priya Sharma', capacity: 200, registered: 148, status: 'Upcoming', budget: '₹3,50,000' },
@@ -24,11 +28,32 @@ const statusStyle: Record<string, string> = {
   Cancelled: 'badge badge-red',
 };
 
+const eventTypeColors: Record<string, string> = {
+  Fundraiser: '#1AACB8',
+  Training: '#6366F1',
+  Outreach: '#10B981',
+  Meeting: '#94A3B8',
+  Community: '#8B5CF6',
+};
+
 export default function EventsPage() {
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [search, setSearch] = useState('');
 
   const filtered = events.filter(e => e.title.toLowerCase().includes(search.toLowerCase()));
+  const eventTypeData = Object.entries(
+    filtered.reduce<Record<string, number>>((counts, event) => {
+      counts[event.type] = (counts[event.type] ?? 0) + 1;
+      return counts;
+    }, {}),
+  ).map(([name, value]) => ({ name, value, color: eventTypeColors[name] }));
+  const attendanceData = filtered
+    .map(event => ({
+      name: event.title,
+      registered: event.registered,
+      remaining: Math.max(event.capacity - event.registered, 0),
+    }))
+    .sort((a, b) => b.registered - a.registered);
 
   return (
     <div className="flex flex-col gap-5">
@@ -64,6 +89,73 @@ export default function EventsPage() {
         <div className="tab-bar">
           <button className={`tab-item ${view === 'grid' ? 'active' : ''}`} onClick={() => setView('grid')}>Grid</button>
           <button className={`tab-item ${view === 'list' ? 'active' : ''}`} onClick={() => setView('list')}>List</button>
+        </div>
+      </div>
+
+      {/* Event analytics */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <span className="card-title">Events by Type</span>
+              <p className="text-xs text-slate-400 mt-1">Breakdown of matching events</p>
+            </div>
+          </div>
+          <div className="card-body">
+            {eventTypeData.length ? (
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative w-44 h-44">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={eventTypeData} dataKey="value" nameKey="name" innerRadius={52} outerRadius={76} paddingAngle={3}>
+                        {eventTypeData.map(entry => <Cell key={entry.name} fill={entry.color} />)}
+                      </Pie>
+                      <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-2xl font-extrabold text-slate-800">{filtered.length}</span>
+                    <span className="text-[11px] text-slate-400">events</span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap justify-center gap-x-4 gap-y-2">
+                  {eventTypeData.map(entry => (
+                    <div key={entry.name} className="flex items-center gap-1.5 text-xs">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ background: entry.color }} />
+                      <span className="text-slate-500">{entry.name}</span>
+                      <span className="font-semibold text-slate-700">{entry.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="h-56 flex items-center justify-center text-sm text-slate-400">No matching events</div>
+            )}
+          </div>
+        </div>
+
+        <div className="card xl:col-span-2">
+          <div className="card-header">
+            <div>
+              <span className="card-title">Event Registration Capacity</span>
+              <p className="text-xs text-slate-400 mt-1">Registered attendees compared with available places</p>
+            </div>
+          </div>
+          <div className="card-body">
+            {attendanceData.length ? (
+              <ResponsiveContainer width="100%" height={Math.max(220, attendanceData.length * 44)}>
+                <BarChart data={attendanceData} layout="vertical" barSize={18} margin={{ left: 8 }}>
+                  <XAxis type="number" tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                  <YAxis dataKey="name" type="category" width={170} tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                  <Bar dataKey="registered" stackId="capacity" fill="#1AACB8" name="Registered" />
+                  <Bar dataKey="remaining" stackId="capacity" fill="#E2E8F0" radius={[0, 5, 5, 0]} name="Available" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-56 flex items-center justify-center text-sm text-slate-400">No matching events</div>
+            )}
+          </div>
         </div>
       </div>
 

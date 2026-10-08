@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
+import LoginPage from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import ProjectsPage from './pages/projects/Projects';
 import ProposalsPage from './pages/projects/Proposals';
@@ -23,12 +24,35 @@ import ReportsPage from './pages/reports/Reports';
 import DepartmentReports from './pages/reports/DepartmentReports';
 import CommunicationPage from './pages/communication/Communication';
 import AdminPage from './pages/admin/Admin';
+import { useState } from 'react';
 
-export default function App() {
+const AUTH_STORAGE_KEY = 'hope-foundation-user';
+
+function getStoredEmail() {
+  return localStorage.getItem(AUTH_STORAGE_KEY) ?? sessionStorage.getItem(AUTH_STORAGE_KEY);
+}
+
+function AppRoutes() {
+  const [userEmail, setUserEmail] = useState<string | null>(getStoredEmail);
+
+  const login = (email: string, remember: boolean) => {
+    const storage = remember ? localStorage : sessionStorage;
+    const otherStorage = remember ? sessionStorage : localStorage;
+    storage.setItem(AUTH_STORAGE_KEY, email);
+    otherStorage.removeItem(AUTH_STORAGE_KEY);
+    setUserEmail(email);
+  };
+
+  const logout = () => {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    sessionStorage.removeItem(AUTH_STORAGE_KEY);
+    setUserEmail(null);
+  };
+
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Layout />}>
+    <Routes>
+      <Route path="/login" element={userEmail ? <Navigate to="/dashboard" replace /> : <LoginPage onLogin={login} />} />
+      <Route path="/" element={userEmail ? <Layout userEmail={userEmail} onLogout={logout} /> : <Navigate to="/login" replace />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="projects" element={<ProjectsPage />} />
@@ -53,8 +77,16 @@ export default function App() {
           <Route path="reports/department" element={<DepartmentReports />} />
           <Route path="communication" element={<CommunicationPage />} />
           <Route path="admin" element={<AdminPage />} />
-        </Route>
-      </Routes>
+      </Route>
+      <Route path="*" element={<Navigate to={userEmail ? '/dashboard' : '/login'} replace />} />
+    </Routes>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
     </BrowserRouter>
   );
 }
